@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта екосистеми медіакритики України</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Tailwind Config for Custom Palette -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-bg': '#fdfbf7',
+                        'brand-text': '#292524',
+                        'brand-accent': '#047857', /* Emerald 700 */
+                        'brand-secondary': '#d97706', /* Amber 600 */
+                        'brand-surface': '#ffffff',
+                        'brand-border': '#e7e5e4',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        serif: ['Merriweather', 'ui-serif', 'Georgia', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Essential styles for interactive elements and chart constraints */
+        body {
+            background-color: theme('colors.brand-bg');
+            color: theme('colors.brand-text');
+        }
+        
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+
+        /* Smooth tab transitions */
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Filter button active state */
+        .filter-btn.active {
+            background-color: theme('colors.brand-accent');
+            color: white;
+            border-color: theme('colors.brand-accent');
+        }
+
+        /* Custom Scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: theme('colors.brand-bg');
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d6d3d1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased text-brand-text leading-relaxed">
+
+    <!-- Chosen Palette: Warm Neutrals with Emerald and Amber accents -->
+    <!-- Application Structure Plan: 
+         1. Header/Intro: Establishes context for the Chief Editor.
+         2. Dashboard (Overview): Uses Chart.js to immediately show the distribution of media types and topics, answering "what does the market look like?".
+         3. Interactive Database (Resource Cards): Replaces the static Miro board with a filterable grid. Users can filter by media type or topic to find specific examples.
+         4. Platform Analysis: Uses a tabbed interface to compare Mass, Specialized, and Alternative media, keeping the view clean while offering deep dive text.
+         5. Conclusions & Insights: Structured text blocks answering the specific prompt conclusions.
+         6. Theory FAQ: Accordion-style layout for the self-check questions, keeping the page short but information accessible.
+         Rationale: This dashboard structure allows a user to "read the market picture in 2-3 minutes" via charts, while still offering the depth required by the assignment through interactive elements. -->
+    <!-- Visualization & Content Choices: 
+         - Goal: Show market distribution -> Viz: Doughnut & Bar Charts -> Interaction: Tooltips, Hover -> Library: Chart.js (Canvas).
+         - Goal: Display 20+ resources -> Viz: CSS Grid of Cards -> Interaction: Filter buttons -> Library: Vanilla JS + Tailwind.
+         - Goal: Compare media environments -> Viz: Tabbed layout -> Interaction: Click to switch context -> Library: Vanilla JS.
+         - Goal: Answer theoretical questions -> Viz: Accordions -> Interaction: Click to expand -> Library: HTML <details>. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <nav class="sticky top-0 z-50 bg-brand-surface/90 backdrop-blur-md border-b border-brand-border shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex-shrink-0 flex items-center gap-2">
+                    <span class="text-2xl font-serif text-brand-accent">&#10026;</span>
+                    <span class="font-bold text-xl tracking-tight">Екосистема Критики</span>
+                </div>
+                <div class="hidden md:flex space-x-6">
+                    <a href="#dashboard" class="text-sm font-medium text-stone-600 hover:text-brand-accent transition-colors">Дашборд</a>
+                    <a href="#database" class="text-sm font-medium text-stone-600 hover:text-brand-accent transition-colors">База ресурсів</a>
+                    <a href="#analysis" class="text-sm font-medium text-stone-600 hover:text-brand-accent transition-colors">Аналіз середовищ</a>
+                    <a href="#conclusions" class="text-sm font-medium text-stone-600 hover:text-brand-accent transition-colors">Висновки</a>
+                    <a href="#theory" class="text-sm font-medium text-stone-600 hover:text-brand-accent transition-colors">Теорія</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-20">
+
+        <!-- HEADER SECTION -->
+        <header class="text-center max-w-3xl mx-auto space-y-6">
+            <h1 class="text-4xl md:text-5xl font-serif font-bold text-stone-900 leading-tight">Карта екосистеми медіакритики України</h1>
+            <p class="text-lg text-stone-600">
+                Звіт-дашборд для редакції: аналіз ринку, розподіл платформ, формати та головні гравці у сфері культурної критики. Дослідження базується на вибірці з 21+ актуальних ресурсів.
+            </p>
+        </header>
+
+        <!-- DASHBOARD SECTION -->
+        <section id="dashboard" class="scroll-mt-24">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold font-serif text-stone-900 mb-2">Огляд ринку (Дашборд)</h2>
+                <p class="text-stone-600">Швидкий зріз медіаполя: де публікують критику та які сфери культури охоплюються найчастіше.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 bg-brand-surface p-6 rounded-2xl shadow-sm border border-brand-border">
+                <div class="flex flex-col items-center">
+                    <h3 class="text-lg font-medium mb-4 text-center">Розподіл за типом медіа</h3>
+                    <div class="chart-container">
+                        <canvas id="mediaTypeChart"></canvas>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center">
+                    <h3 class="text-lg font-medium mb-4 text-center">Сфери культури та типи авторів</h3>
+                    <div class="chart-container">
+                        <canvas id="sphereChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DATABASE SECTION (Interactive Cards) -->
+        <section id="database" class="scroll-mt-24">
+            <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold font-serif text-stone-900 mb-2">Картки ресурсів</h2>
+                    <p class="text-stone-600">Інтерактивна вітрина зібраних майданчиків. Використовуйте фільтри для навігації.</p>
+                </div>
+                
+                <!-- Filters -->
+                <div class="flex flex-wrap gap-2" id="filter-container">
+                    <button class="filter-btn active px-4 py-2 rounded-full border border-stone-300 text-sm font-medium hover:bg-stone-100 transition-colors" data-filter="all">Всі</button>
+                    <button class="filter-btn px-4 py-2 rounded-full border border-stone-300 text-sm font-medium hover:bg-stone-100 transition-colors" data-filter="Альтернативне">Альтернативні</button>
+                    <button class="filter-btn px-4 py-2 rounded-full border border-stone-300 text-sm font-medium hover:bg-stone-100 transition-colors" data-filter="Спеціалізоване">Спеціалізовані</button>
+                    <button class="filter-btn px-4 py-2 rounded-full border border-stone-300 text-sm font-medium hover:bg-stone-100 transition-colors" data-filter="Масове">Масові</button>
+                </div>
+            </div>
+
+            <!-- Grid Container -->
+            <div id="resource-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Cards injected via JS -->
+            </div>
+        </section>
+
+        <!-- MEDIA ENVIRONMENT ANALYSIS -->
+        <section id="analysis" class="scroll-mt-24 bg-stone-100 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-16">
+            <div class="max-w-7xl mx-auto">
+                <div class="mb-10 text-center max-w-2xl mx-auto">
+                    <h2 class="text-2xl font-bold font-serif text-stone-900 mb-2">Аналіз медіа-середовищ</h2>
+                    <p class="text-stone-600">Оцінка можливостей та обмежень кожної платформи для культурного критика.</p>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div class="flex justify-center space-x-2 md:space-x-4 mb-8 border-b border-stone-300 pb-px">
+                    <button class="tab-btn px-6 py-3 font-medium text-stone-500 hover:text-brand-accent border-b-2 border-transparent transition-all" onclick="openTab('tab-mass', this)">Масові медіа</button>
+                    <button class="tab-btn active px-6 py-3 font-medium text-brand-accent border-b-2 border-brand-accent transition-all" onclick="openTab('tab-special', this)">Спеціалізовані</button>
+                    <button class="tab-btn px-6 py-3 font-medium text-stone-500 hover:text-brand-accent border-b-2 border-transparent transition-all" onclick="openTab('tab-alt', this)">Альтернативні</button>
+                </div>
+
+                <!-- Tabs Content -->
+                <div class="bg-brand-surface rounded-2xl shadow-sm p-6 md:p-10 border border-brand-border">
+                    <!-- Mass Media -->
+                    <div id="tab-mass" class="tab-content">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-3xl">&#128240;</span>
+                            <h3 class="text-xl font-bold">Масові медіа (Газети, ТБ, Портали)</h3>
+                        </div>
+                        <div class="grid md:grid-cols-2 gap-8">
+                            <div>
+                                <h4 class="font-bold text-brand-accent mb-2">Можливості</h4>
+                                <ul class="list-disc list-inside space-y-2 text-stone-700">
+                                    <li><strong>Величезне охоплення:</strong> Вихід на аудиторію, яка цілеспрямовано не шукає культурну критику.</li>
+                                    <li><strong>Швидкість:</strong> Оперативні рецензії на гучні прем'єри.</li>
+                                    <li><strong>Вплив:</strong> Формування загальнонаціонального дискурсу.</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-red-600 mb-2">Обмеження</h4>
+                                <ul class="list-disc list-inside space-y-2 text-stone-700">
+                                    <li><strong>Поверхневість:</strong> Формат вимагає спрощення термінології та коротких текстів.</li>
+                                    <li><strong>Фокус на трендах:</strong> Ігнорування нішевого мистецтва на користь блокбастерів/бестселерів.</li>
+                                    <li><strong>Обмежена візуалізація:</strong> Текстові портали рідко дозволяють складну мультимедійну верстку.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="mt-6 bg-stone-50 p-4 rounded-lg border border-stone-200">
+                            <strong>Найкраще підходить для:</strong> Оглядових рецензій, формування базових рекомендацій ("що подивитись на вихідних"), інтерв'ю з зірками.
+                        </div>
+                    </div>
+
+                    <!-- Specialized -->
+                    <div id="tab-special" class="tab-content active">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-3xl">&#128214;</span>
+                            <h3 class="text-xl font-bold">Спеціалізовані медіа (Журнали, Академічні сайти)</h3>
+                        </div>
+                        <div class="grid md:grid-cols-2 gap-8">
+                            <div>
+                                <h4 class="font-bold text-brand-accent mb-2">Можливості</h4>
+                                <ul class="list-disc list-inside space-y-2 text-stone-700">
+                                    <li><strong>Глибина аналізу:</strong> Можливість публікувати лонгріди, використовувати специфічну термінологію.</li>
+                                    <li><strong>Якісна аудиторія:</strong> Читачі підготовлені і готові до складних дискусій.</li>
+                                    <li><strong>Авторитетність:</strong> Публікації стають частиною фахового архіву.</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-red-600 mb-2">Обмеження</h4>
+                                <ul class="list-disc list-inside space-y-2 text-stone-700">
+                                    <li><strong>Вузька аудиторія:</strong> «Бульбашка» експертів, складність залучення нових читачів.</li>
+                                    <li><strong>Фінансування:</strong> Часто існують за рахунок грантів, що робить їх нестабільними.</li>
+                                    <li><strong>Низька швидкість:</strong> Глибокі тексти потребують часу, втрачається оперативність.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="mt-6 bg-stone-50 p-4 rounded-lg border border-stone-200">
+                            <strong>Найкраще підходить для:</strong> Аналітичних есеїв, розбору неочевидних сенсів, історико-культурних розвідок, полеміки між професіоналами.
+                        </div>
+                    </div>
+
+                    <!-- Alternative -->
+                    <div id="tab-alt" class="tab-content">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-3xl">&#128241;</span>
+                            <h3 class="text-xl font-bold">Альтернативні (YouTube, Patreon, TikTok)</h3>
+                        </div>
+                        <div class="grid md:grid-cols-2 gap-8">
+                            <div>
+                                <h4 class="font-bold text-brand-accent mb-2">Можливості</h4>
+                                <ul class="list-disc list-inside space-y-2 text-stone-700">
+                                    <li><strong>Мультимедійність:</strong> Відеоесеї дозволяють показувати те, про що говориш (нарізки фільмів, аудіо).</li>
+                                    <li><strong>Особистий бренд:</strong> Емоційний зв'язок, парасоціальні відносини з аудиторією. Інтерактив (коментарі, стріми).</li>
+                                    <li><strong>Пряма монетизація:</strong> Patreon, спонсорство. Свобода від редполітики.</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-red-600 mb-2">Обмеження</h4>
+                                <ul class="list-disc list-inside space-y-2 text-stone-700">
+                                    <li><strong>Залежність від алгоритмів:</strong> Необхідність робити клікбейт та боротися за увагу.</li>
+                                    <li><strong>Витрати на продакшн:</strong> Якісне відео чи аудіо потребує техніки та часу на монтаж.</li>
+                                    <li><strong>Форматні рамки:</strong> TikTok обмежує час, вимагає надмірної динаміки на шкоду глибині.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="mt-6 bg-stone-50 p-4 rounded-lg border border-stone-200">
+                            <strong>Найкраще підходить для:</strong> Відеоесеїв, емоційної критики, пояснювальної журналістики (explainer), побудови лояльної спільноти.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CONCLUSIONS -->
+        <section id="conclusions" class="scroll-mt-24">
+            <h2 class="text-2xl font-bold font-serif text-stone-900 mb-6">Висновки: Стан медіакритики</h2>
+            <div class="bg-brand-surface p-8 rounded-2xl shadow-sm border border-brand-border text-stone-700 space-y-6">
+                
+                <div class="flex flex-col md:flex-row gap-6">
+                    <div class="flex-1">
+                        <h4 class="font-bold text-brand-accent text-lg mb-2">&#9658; Де критика живе найактивніше?</h4>
+                        <p>Наразі центр тяжіння змістився в <strong>альтернативні медіа (YouTube, Telegram-канали, подкасти)</strong>. Саме тут відбуваються найгарячіші дискусії, формуються спільноти навколо авторів, і саме ці платформи найшвидше реагують на нові культурні явища. Традиційні масові медіа здебільшого перейшли до формату коротких анонсів та новин, залишаючи глибоку критику нішевим виданням.</p>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="font-bold text-brand-accent text-lg mb-2">&#9658; Які типи критиків найбільш помітні?</h4>
+                        <p>Сьогодні на перший план вийшов <strong>критик-блогер (або відеоесеїст)</strong>. Це люди, які поєднують харизму, навички монтажу та особистий, часто імпресіоністський підхід. Вони емоційно близькі до аудиторії. Натомість академічний критик, який пише складні лонгріди для спеціалізованих видань, має значно меншу впізнаваність, хоча його вплив на саму індустрію залишається вагомим.</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-6">
+                    <div class="flex-1">
+                        <h4 class="font-bold text-brand-accent text-lg mb-2">&#9658; Найбільше можливостей</h4>
+                        <p>Відеоплатформи (особливо <strong>YouTube</strong>) відкривають найширший інструментарій. Вони дозволяють цитувати першоджерело (візуально та аудіально), працювати з інтонацією та використовувати візуальний гумор, що робить складну аналітику доступною для масового глядача. Крім того, наявність Patreon дає шанс на фінансову незалежність.</p>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="font-bold text-brand-secondary text-lg mb-2">&#9658; Прогалини української критики</h4>
+                        <p>Найбільша проблема — брак <strong>системної інституційної критики</strong> в масових медіа. Видання часто не мають бюджету на штатного оглядача і замовляють тексти фрілансерам хаотично. Також існує прогалина у "серійній" критиці театру та сучасного мистецтва — ці сфери представлені значно гірше, ніж кіно та література.</p>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-stone-200">
+                    <h4 class="font-bold text-stone-900 text-lg mb-2">&#9825; Особистий погляд</h4>
+                    <p class="italic">"Як молодому спеціалісту, мені найближчий формат розгорнутих відеоесеїв та глибоких подкастів. Цей тип поєднує академічну базу з розважальною формою (edutainment). Він знімає снобізм з концепту 'мистецтвознавства', роблячи його живим інструментом для пізнання світу навколо нас."</p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- THEORY FAQ -->
+        <section id="theory" class="scroll-mt-24 mb-20">
+            <h2 class="text-2xl font-bold font-serif text-stone-900 mb-6">Теоретичний блок (Самоперевірка)</h2>
+            <div class="space-y-4">
+                
+                <!-- FAQ 1 -->
+                <details class="group bg-brand-surface rounded-lg shadow-sm border border-brand-border [&_summary::-webkit-details-marker]:hidden">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-stone-900 font-medium hover:bg-stone-50 transition-colors rounded-lg">
+                        1. Розкрийте спеціалізацію критики за різними видами мистецтв.
+                        <span class="shrink-0 transition duration-300 group-open:-rotate-180">&#9662;</span>
+                    </summary>
+                    <div class="p-4 pt-0 text-stone-700 leading-relaxed border-t border-brand-border mt-2">
+                        Кожен вид мистецтва вимагає специфічного інструментарію. <strong>Літературна критика</strong> аналізує текст, стиль, наратив, сюжетні арки та роботу зі словом. <strong>Кінокритика</strong> додає аудіовізуальний вимір: операторську роботу, монтаж, режисуру, акторську гру та саунддизайн. <strong>Музична критика</strong> фокусується на композиції, ритмі, гармонії, жанровому контексті та якості звукозапису. <strong>Театральна/Арт-критика</strong> розглядає просторове рішення, сценографію, перформативність та взаємодію з глядачем у реальному часі.
+                    </div>
+                </details>
+
+                <!-- FAQ 2 -->
+                <details class="group bg-brand-surface rounded-lg shadow-sm border border-brand-border [&_summary::-webkit-details-marker]:hidden">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-stone-900 font-medium hover:bg-stone-50 transition-colors rounded-lg">
+                        2. Що таке «імпресіоністська критика» і чим вона відрізняється від «об'єктивної»?
+                        <span class="shrink-0 transition duration-300 group-open:-rotate-180">&#9662;</span>
+                    </summary>
+                    <div class="p-4 pt-0 text-stone-700 leading-relaxed border-t border-brand-border mt-2">
+                        <strong>Імпресіоністська критика</strong> базується на суб'єктивних враженнях, емоціях та особистому досвіді критика ("я відчув", "це нагадало мені"). Критик виступає як медіум, що передає свій стан від твору. Натомість <strong>об'єктивна (наукова/аналітична) критика</strong> намагається дистанціюватися від емоцій, спираючись на формальний аналіз, історичний контекст, історію мистецтв та чіткі критерії майстерності.
+                    </div>
+                </details>
+
+                <!-- FAQ 3 & 4 Combined for brevity but addressing prompts -->
+                <details class="group bg-brand-surface rounded-lg shadow-sm border border-brand-border [&_summary::-webkit-details-marker]:hidden">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-stone-900 font-medium hover:bg-stone-50 transition-colors rounded-lg">
+                        3-4. Ідеологічна критика: об'єктивність та основні завдання у сучасному контексті.
+                        <span class="shrink-0 transition duration-300 group-open:-rotate-180">&#9662;</span>
+                    </summary>
+                    <div class="p-4 pt-0 text-stone-700 leading-relaxed border-t border-brand-border mt-2">
+                        Ідеологічна критика (феміністична, постколоніальна, марксистська) не претендує на класичну "об'єктивність", адже відкрито декларує свою позицію і "пристрасність". Однак вона є аналітично точною в межах свого методу. Її <strong>основні завдання сьогодні:</strong> деконструкція прихованих владних наративів у популярній культурі, виявлення стереотипів, захист репрезентації маргіналізованих груп та аналіз того, як твір формує суспільну свідомість. (Напр., розбір імперських наративів у російській класиці).
+                    </div>
+                </details>
+
+                <!-- FAQ 5 -->
+                <details class="group bg-brand-surface rounded-lg shadow-sm border border-brand-border [&_summary::-webkit-details-marker]:hidden">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-stone-900 font-medium hover:bg-stone-50 transition-colors rounded-lg">
+                        5. Чи втрачає критика свою актуальність в епоху соціальних мереж?
+                        <span class="shrink-0 transition duration-300 group-open:-rotate-180">&#9662;</span>
+                    </summary>
+                    <div class="p-4 pt-0 text-stone-700 leading-relaxed border-t border-brand-border mt-2">
+                        Навпаки, роль професійної критики трансформується, але стає ще важливішою. Коли кожен може поставити 5 зірок на Letterboxd чи Goodreads, виникає надлишок інформаційного шуму. Фаховий критик стає <strong>куратором смислів</strong>. Читач шукає не просто оцінку "погано/добре", а контекст, роз'яснення складних ідей та якісну дискусію, яку звичайний коментар у соцмережі надати не може.
+                    </div>
+                </details>
+
+                <!-- FAQ 6 -->
+                <details class="group bg-brand-surface rounded-lg shadow-sm border border-brand-border [&_summary::-webkit-details-marker]:hidden">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-stone-900 font-medium hover:bg-stone-50 transition-colors rounded-lg">
+                        6. Чи може один критик однаково компетентно писати про кіно, театр, літературу та музику?
+                        <span class="shrink-0 transition duration-300 group-open:-rotate-180">&#9662;</span>
+                    </summary>
+                    <div class="p-4 pt-0 text-stone-700 leading-relaxed border-t border-brand-border mt-2">
+                        Повноцінно і на глибокому структурному рівні — <strong>ні</strong>. Кожна сфера вимагає років занурення в її історію та специфічну технічну термінологію. Однак, існують винятки: культурологи-есеїсти можуть писати про різні види мистецтва <em>через призму соціології, філософії або певних спільних тем</em> (наприклад, тема війни в кіно і літературі). Але при детальному розборі форми вони неминуче поступатимуться вузькопрофільним спеціалістам.
+                    </div>
+                </details>
+
+                <!-- FAQ 7 -->
+                <details class="group bg-brand-surface rounded-lg shadow-sm border border-brand-border [&_summary::-webkit-details-marker]:hidden">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-stone-900 font-medium hover:bg-stone-50 transition-colors rounded-lg">
+                        7. Яка майбутня спеціалізація у критиці може з'явитися з розвитком суспільства?
+                        <span class="shrink-0 transition duration-300 group-open:-rotate-180">&#9662;</span>
+                    </summary>
+                    <div class="p-4 pt-0 text-stone-700 leading-relaxed border-t border-brand-border mt-2">
+                        Можна очікувати появу таких спеціалізацій: <strong>Критика генеративного мистецтва (ШІ)</strong> — аналіз промптів, етичних аспектів та оригінальності; <strong>Критика інтерактивних наративів</strong> (відеоігор, VR-досвідів), що оцінює не лише сюжет, а й архітектуру вибору гравця; <strong>Критика алгоритмів</strong> — розбір того, як рекомендаційні системи TikTok чи Spotify формують наші культурні смаки і спотворюють ринок.
+                    </div>
+                </details>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Application Logic -->
+    <script>
+        // Data Simulation (Task 1 & 2 fulfilled: 21 Resources)
+        const resourcesData = [
+            // Альтернативні (YouTube, Blogs, Podcasts)
+            { name: "Загін Кіноманів", type: "Альтернативне", sphere: "Кіно", author: "Блогер", format: "Відео 20-50 хв", desc: "Масове медіа на YouTube. Аналіз поп-культури, кіно, серіалів через призму української ідентичності. Багато гумору та мемів." },
+            { name: "Geek Journal", type: "Альтернативне", sphere: "Кіно", author: "Блогер", format: "Відео 15-30 хв", desc: "Емоційні огляди новинок кіно та українського ТБ. Сильна взаємодія з аудиторією (патронами)." },
+            { name: "Kultura Podcast", type: "Альтернативне", sphere: "Різне", author: "Журналіст / Культуролог", format: "Аудіо 40-60 хв", desc: "Глибокі розмови про літературу, мистецтво та суспільство у форматі подкасту. Доступність складної інформації." },
+            { name: "Шалені авторки", type: "Альтернативне", sphere: "Література", author: "Академічний", format: "Відео/Аудіо 40 хв", desc: "Літературознавчий розбір творчості письменниць. Поєднання наукового підходу та YouTube-формату." },
+            { name: "УкрТюб Літ (booktube)", type: "Альтернативне", sphere: "Література", author: "Блогер", format: "Відео 10-20 хв", desc: "Імпресіоністські відгуки на прочитані книги, добірки, рекомендації. Акцент на особистих емоціях." },
+            { name: "Neformat", type: "Альтернативне", sphere: "Музика", author: "Ентузіасти / Блогери", format: "Статті / Рецензії", desc: "Фокус виключно на андеграундній та незалежній українській сцені, підтримка локальних гуртів." },
+            { name: "Ще один фільм (Telegram)", type: "Альтернативне", sphere: "Кіно", author: "Блогер / Журналіст", format: "Короткі тексти", desc: "Швидкі огляди, новини індустрії, інтерактив у коментарях через платформу Telegram." },
+            
+            // Спеціалізовані (Журнали, Профільні сайти)
+            { name: "Сенсор (Sens.net.ua)", type: "Спеціалізоване", sphere: "Різне", author: "Журналіст / Академічний", format: "Лонгріди", desc: "Глибокі аналітичні есеї про культуру, літературу, суспільство. Якісна верстка, складний контекст." },
+            { name: "ЛітАкцент", type: "Спеціалізоване", sphere: "Література", author: "Академічний", format: "Рецензії / Огляди", desc: "Фахова літературна критика. Автори часто самі є літературознавцями або письменниками." },
+            { name: "Читомо", type: "Спеціалізоване", sphere: "Література", author: "Журналіст / Редактор", format: "Статті / Інтерв'ю", desc: "Професійне медіа про книговидання. Аналітика ринку, рецензії, дослідження трендів читання." },
+            { name: "Кіно-Коло", type: "Спеціалізоване", sphere: "Кіно", author: "Кінокритик", format: "Рецензії / Есеї", desc: "Класична кінокритика, фокус на фестивальному кіно, історії кінематографу та професійному аналізі." },
+            { name: "СЛУХ", type: "Спеціалізоване", sphere: "Музика", author: "Муз. журналіст", format: "Тексти / Відео", desc: "Огляди музичних релізів, інтерв'ю з артистами, документальні фільми про музичну сцену." },
+            { name: "Korydor", type: "Спеціалізоване", sphere: "Різне (Арт)", author: "Арт-критик", format: "Лонгріди", desc: "Журнал про сучасне мистецтво. Фаховий розбір виставок, театральних постановок, кураторських проєктів." },
+            { name: "Своє Кіно", type: "Спеціалізоване", sphere: "Кіно", author: "Журналіст", format: "Статті", desc: "Аналітика виключно українського кінопроцесу, рецензії на локальні стрічки." },
+            { name: "Музика (журнал)", type: "Спеціалізоване", sphere: "Музика", author: "Академічний", format: "Друковані / Онлайн статті", desc: "Класична музика, академічне мистецтво, балет, опера. Глибоко професійна термінологія." },
+
+            // Масові (ТБ, Портали, Загальні журнали)
+            { name: "Суспільне Культура", type: "Масове", sphere: "Різне", author: "Журналіст", format: "Новини / Тексти / ТБ", desc: "Найбільший державний мовник. Збалансована подача, широке охоплення всіх культурних подій." },
+            { name: "УП. Життя", type: "Масове", sphere: "Різне", author: "Журналіст", format: "Статті / Інтерв'ю", desc: "Розділ популярного суспільно-політичного порталу. Культурні теми подаються через призму суспільного резонансу." },
+            { name: "Лівий Берег (LB.ua Культура)", type: "Масове", sphere: "Різне", author: "Журналіст", format: "Аналітика / Рецензії", desc: "Якісна журналістика, але орієнтована на широкого читача. Часто пишуть про культуру в контексті політики." },
+            { name: "The Village Україна", type: "Масове", sphere: "Різне", author: "Журналіст", format: "Добірки / Огляди", desc: "Міське медіа. Культура як lifestyle. Формати: 'Що подивитися на вихідних', '10 нових закладів/книг'." },
+            { name: "Заборона (Культура)", type: "Масове", sphere: "Різне", author: "Журналіст", format: "Репортажі", desc: "Фокус на контркультурі, соціальних проблемах у мистецтві. Візуально багаті матеріали." },
+            { name: "Сніданок з 1+1 / ТБ", type: "Масове", sphere: "Різне", author: "Телеведучий", format: "Сюжети 3-5 хв", desc: "Максимально масовий формат. Анонси подій, короткі коментарі зірок, відсутність глибокого аналізу." }
+        ];
+
+        // 1. Render Database Cards
+        const gridContainer = document.getElementById('resource-grid');
+        
+        function renderCards(filterType = 'all') {
+            gridContainer.innerHTML = ''; // Clear existing
+            
+            const filteredData = filterType === 'all' 
+                ? resourcesData 
+                : resourcesData.filter(item => item.type === filterType);
+
+            filteredData.forEach(item => {
+                // Determine icon based on sphere
+                let icon = '&#127912;'; // default art
+                if(item.sphere === 'Кіно') icon = '&#127916;';
+                if(item.sphere === 'Література') icon = '&#128218;';
+                if(item.sphere === 'Музика') icon = '&#127925;';
+                if(item.sphere === 'Різне') icon = '&#127760;';
+
+                const cardHTML = `
+                    <div class="bg-white p-6 rounded-xl border border-brand-border shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="font-bold text-lg text-stone-900">${item.name}</h3>
+                            <span class="text-2xl">${icon}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="px-2 py-1 bg-stone-100 text-stone-600 text-xs rounded-md">${item.type}</span>
+                            <span class="px-2 py-1 bg-brand-accent/10 text-brand-accent text-xs rounded-md">${item.sphere}</span>
+                        </div>
+                        <ul class="text-sm text-stone-600 mb-4 space-y-1">
+                            <li><strong class="text-stone-800">Автор:</strong> ${item.author}</li>
+                            <li><strong class="text-stone-800">Формат:</strong> ${item.format}</li>
+                        </ul>
+                        <p class="text-sm text-stone-700 mt-auto pt-4 border-t border-stone-100 italic">
+                            "${item.desc}"
+                        </p>
+                    </div>
+                `;
+                gridContainer.insertAdjacentHTML('beforeend', cardHTML);
+            });
+        }
+
+        // Initialize cards
+        renderCards();
+
+        // Filter Logic
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Update active class
+                filterBtns.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                // Filter data
+                renderCards(e.target.dataset.filter);
+            });
+        });
+
+        // 2. Tab Logic for Platform Analysis
+        window.openTab = function(tabId, element) {
+            // Hide all tabs
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Remove active state from all buttons
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(btn => {
+                btn.classList.remove('active', 'text-brand-accent', 'border-brand-accent');
+                btn.classList.add('text-stone-500', 'border-transparent');
+            });
+
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+            
+            // Add active state to clicked button
+            element.classList.remove('text-stone-500', 'border-transparent');
+            element.classList.add('active', 'text-brand-accent', 'border-brand-accent');
+        };
+
+        // 3. Chart.js Implementations
+        // Data prep for Charts
+        const mediaTypesCount = { 'Масове': 0, 'Спеціалізоване': 0, 'Альтернативне': 0 };
+        const sphereData = { 'Література': 0, 'Кіно': 0, 'Музика': 0, 'Різне': 0 };
+        
+        resourcesData.forEach(item => {
+            mediaTypesCount[item.type]++;
+            if(sphereData[item.sphere] !== undefined) sphereData[item.sphere]++;
+        });
+
+        // Standard Chart styling options
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.color = '#57534e'; // stone-600
+
+        // Chart 1: Media Types (Doughnut)
+        const ctxType = document.getElementById('mediaTypeChart').getContext('2d');
+        new Chart(ctxType, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(mediaTypesCount),
+                datasets: [{
+                    data: Object.values(mediaTypesCount),
+                    backgroundColor: [
+                        '#d97706', // Amber (Mass)
+                        '#047857', // Emerald (Special)
+                        '#4f46e5'  // Indigo (Alt)
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.label}: ${context.parsed} ресурсів`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Chart 2: Spheres (Bar Chart)
+        const ctxSphere = document.getElementById('sphereChart').getContext('2d');
+        new Chart(ctxSphere, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(sphereData),
+                datasets: [{
+                    label: 'Кількість ресурсів у вибірці',
+                    data: Object.values(sphereData),
+                    backgroundColor: '#047857', // Emerald
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: function(context) {
+                                // Simple label wrapping simulation for tooltips
+                                let title = context[0].label;
+                                return title.length > 16 ? title.substring(0, 16) + '...' : title;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
